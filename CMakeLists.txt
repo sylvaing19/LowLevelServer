@@ -6,4 +6,4 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(.)
 
 add_executable(LowLevelServer
-        main.cpp)
+        main.cpp LowLevelMessage.cpp LowLevelMessage.h SocketInterface.cpp SocketInterface.h)
