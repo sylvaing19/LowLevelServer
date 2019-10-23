@@ -14,7 +14,7 @@ public:
 
     int open(const char *address_string, uint16_t server_port);
     int close();
-    int listen();
+    int receive();
     int available() const;
     LowLevelMessage getLastMessage();
     int sendMessage(const LowLevelMessage &message);
