@@ -1,17 +1,11 @@
 #include "SocketInterface.h"
+
 #include <cerrno>
 #include <cstring>
-
-#ifdef _WIN32
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-#else
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#endif
 
 SocketInterface::SocketInterface()
 {
@@ -32,25 +26,11 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
         return -EEXIST;
     }
 
-    // Create the socket
-    m_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    // Create the socket (non blocking)
+    m_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
     if (m_fd < 0) {
         return -errno;
     }
-
-    // Set socket as NON-BLOCKING
-#ifdef _WIN32
-    u_long mode = 1;
-    ret = ioctlsocket(m_fd, FIONBIO, &mode); // NOLINT(hicpp-signed-bitwise)
-    if (ret != 0) {
-        return -1;
-    }
-#else
-    ret = fcntl(m_fd, F_SETFL, O_NONBLOCK);
-    if (ret < 0) {
-        return -errno;
-    }
-#endif
 
     // Address and port conversion (string to binary data)
     sockaddr_in server_address = {};
@@ -66,13 +46,8 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     }
 
     // Set option: reusable addresses and ports
-#ifdef _WIN32
-    int option_name = SO_REUSEADDR;
-#else
-    int option_name = (SO_REUSEADDR | SO_REUSEPORT);
-#endif
     int option_value = 1;
-    ret = setsockopt(m_fd, SOL_SOCKET, option_name,
+    ret = setsockopt(m_fd, SOL_SOCKET, (SO_REUSEADDR | SO_REUSEPORT),
             (const char *)(&option_value), sizeof(option_value));
     if (ret < 0) {
         return -errno;
