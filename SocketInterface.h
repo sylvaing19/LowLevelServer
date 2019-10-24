@@ -5,6 +5,7 @@
 #include "LowLevelMessage.h"
 
 #define SOCK_INTERFACE_MAX_CLIENTS 32
+#define SOCK_INTERFACE_BUFFER_SIZE 258
 
 class SocketInterface
 {
@@ -20,6 +21,9 @@ public:
     int sendMessage(const LowLevelMessage &message);
 
 private:
+    int registerClient(int fd);
+    int freeClient(size_t id);
+
     struct Client {
         Client();
         int fd;
@@ -29,4 +33,5 @@ private:
     int m_fd;
     Client m_clients[SOCK_INTERFACE_MAX_CLIENTS];
     std::queue<LowLevelMessage> m_msg_queue;
+    uint8_t m_buffer[SOCK_INTERFACE_BUFFER_SIZE];
 };

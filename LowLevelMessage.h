@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <sys/types.h>
 
 #define UNKNOWN_CLIENT_ID (-1)
 #define BROADCAST_CLIENT_ID (0xFE)
@@ -34,9 +35,14 @@ public:
     void set_client_id(int client_id);
     int get_client_id() const;
 
-    int get_frame(std::vector<uint8_t> &frame) const;
+    ssize_t get_frame_with_cid(uint8_t *buf, size_t size) const;
+    ssize_t get_frame_without_cid(uint8_t *buf, size_t size) const;
+
+    static const char *str_error(int err_code);
 
 private:
+    ssize_t get_frame_body(uint8_t *buf, size_t size) const;
+
     bool m_read_client_id;
     int m_client_id;
 

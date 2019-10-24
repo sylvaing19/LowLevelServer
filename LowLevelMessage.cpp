@@ -121,7 +121,75 @@ int LowLevelMessage::get_client_id() const
     return m_client_id;
 }
 
-int LowLevelMessage::get_frame(std::vector<uint8_t> &frame) const
+ssize_t LowLevelMessage::get_frame_with_cid(uint8_t *buf, size_t size) const
 {
-    return 0;
+    if (buf == nullptr) {
+        return -EFAULT;
+    }
+    if (m_client_id == UNKNOWN_CLIENT_ID) {
+        return -EBADMSG;
+    }
+    if (size < 2) {
+        return -EMSGSIZE;
+    }
+
+    buf[0] = HEADER_BYTE;
+    buf[1] = (uint8_t)m_client_id;
+    ssize_t ret = get_frame_body(buf + 2, size - 2);
+    if (ret < 0) {
+        return ret;
+    } else {
+        return ret + 2;
+    }
+}
+
+ssize_t LowLevelMessage::get_frame_without_cid(uint8_t *buf, size_t size) const
+{
+    if (buf == nullptr) {
+        return -EFAULT;
+    }
+    if (size < 1) {
+        return -EMSGSIZE;
+    }
+
+    buf[0] = HEADER_BYTE;
+    ssize_t ret = get_frame_body(buf + 1, size - 1);
+    if (ret < 0) {
+        return ret;
+    } else {
+        return ret + 1;
+    }
+}
+
+ssize_t LowLevelMessage::get_frame_body(uint8_t *buf, size_t size) const
+{
+    if (!ready()) {
+        return -EBADMSG;
+    }
+    if (size < m_frame.size()) {
+        return -EMSGSIZE;
+    }
+    for (size_t i = 0; i < m_frame.size(); i++) {
+        buf[i] = m_frame.at(i);
+    }
+
+    return m_frame.size();
+}
+
+const char *LowLevelMessage::str_error(int err_code)
+{
+    switch (err_code) {
+        case LL_MSG_OK:
+            return "LL_MSG OK";
+        case LL_MSG_FULL:
+            return "LL_MSG Full";
+        case LL_MSG_HEADER_ERR:
+            return "LL_MSG Invalid header";
+        case LL_MSG_CLIENT_ID_ERR:
+            return "LL_MSG Invalid client ID";
+        case LL_MSG_SIZE_ERR:
+            return "LL_MSG Invalid size";
+        default:
+            return "LL_MSG Unknown error";
+    }
 }
