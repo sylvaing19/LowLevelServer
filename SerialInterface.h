@@ -21,6 +21,7 @@ public:
 
 private:
     int m_fd;
+    LowLevelMessage m_ll_msg;
     std::queue<LowLevelMessage> m_msg_queue;
     uint8_t m_buffer[SERIAL_INTERFACE_BUFFER_SIZE];
 };

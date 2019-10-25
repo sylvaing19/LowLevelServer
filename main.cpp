@@ -16,6 +16,9 @@ int main(int argc, const char * argv[])
     tcp_interface.open("127.0.0.1", 2223);
     tcp_interface.close();
 
+    tty_interface.open("COM3");
+    tty_interface.close();
+
     std::cout << "Lol world" << std::endl;
     return 0;
 }

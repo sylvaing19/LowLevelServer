@@ -143,15 +143,14 @@ int SocketInterface::receive()
         } else {
             for (ssize_t k = 0; k < size; k++) {
                 int ll_ret = m_clients[i].message.append_byte(m_buffer[k]);
+                if (ll_ret != LL_MSG_OK) {
+                    fprintf(stderr, "Invalid byte received from client #%lu (%u): %s\n",
+                            i, m_buffer[k], LowLevelMessage::str_error(ll_ret));
+                    ret = -EBADMSG;
+                }
                 if (m_clients[i].message.ready()) {
                     m_msg_queue.push(m_clients[i].message);
                     m_clients[i].message.reset();
-                }
-
-                if (ll_ret != LL_MSG_OK) {
-                    fprintf(stderr, "Invalid byte received (%u): %s\n",
-                            m_buffer[k], LowLevelMessage::str_error(ll_ret));
-                    ret = -EBADMSG;
                 }
             }
         }
@@ -179,7 +178,8 @@ int SocketInterface::sendMessage(const LowLevelMessage &message)
     }
 
     int client_id = message.get_client_id();
-    if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS) {
+    if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS ||
+            client_id == BROADCAST_CLIENT_ID) {
         return -EINVAL;
     }
     if (m_clients[client_id].fd < 0) {
@@ -194,19 +194,17 @@ int SocketInterface::sendMessage(const LowLevelMessage &message)
 
     ssize_t nb_bytes_sent = 0;
     while (nb_bytes_sent < size) {
-        ssize_t ret = send(m_clients[client_id].fd, m_buffer, size,
-                MSG_NOSIGNAL);
+        ssize_t ret = send(m_clients[client_id].fd, m_buffer + nb_bytes_sent,
+                size - nb_bytes_sent, MSG_NOSIGNAL);
         if (ret < 0) {
-            if (errno == EPIPE || errno == ECONNRESET) {
-                freeClient(client_id);
-                return -errno;
-            } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                perror("Failed to send message");
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                perror("Failed to send message on socket");
                 freeClient(client_id);
                 return -errno;
             }
         } else if (ret == 0) {
-            fprintf(stderr, "Failed to send message (zero bytes written)\n");
+            fprintf(stderr,
+                    "Failed to send message on socket (zero bytes written)\n");
             freeClient(client_id);
             return -ENOTCONN;
         } else {

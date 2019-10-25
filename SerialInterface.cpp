@@ -1,6 +1,13 @@
 #include "SerialInterface.h"
 
-SerialInterface::SerialInterface()
+#include <fcntl.h>
+#include <cerrno>
+#include <cstdio>
+#include <termios.h>
+#include <unistd.h>
+
+SerialInterface::SerialInterface() :
+    m_ll_msg(LL_MSG_SIDE_SERIAL)
 {
     m_fd = -1;
 }
@@ -9,17 +16,98 @@ SerialInterface::~SerialInterface() = default;
 
 int SerialInterface::open(const char *port)
 {
+    int ret;
+    struct termios serial_settings;
+
+    /* Open serial port */
+    m_fd = ::open(port, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (m_fd < 0) {
+        perror("Failed to open serial port");
+        return -errno;
+    }
+
+    /* Read serial port settings */
+    ret = tcgetattr(m_fd, &serial_settings);
+    if (ret < 0) {
+        perror("Failed to read port settings");
+        return -errno;
+    }
+
+    /* Set RAW serial port */
+    cfmakeraw(&serial_settings);
+
+    /* Set other settings */
+    serial_settings.c_cflag     &=  ~CSTOPB;            // one stop bit
+    serial_settings.c_cflag     &=  ~CRTSCTS;           // no flow control
+    serial_settings.c_cc[VMIN]   =  1;                  // minimum number of characters for non-canonical read
+    serial_settings.c_cc[VTIME]  =  1;                  // timeout in deciseconds for non-canonical read
+    serial_settings.c_cflag     |=  CREAD | CLOCAL;     // turn on READ & ignore ctrl lines
+
+    /* Flush port */
+    ret = tcflush(m_fd, TCIFLUSH);
+    if (ret < 0) {
+        perror("Failed to flush serial port");
+        return -errno;
+    }
+
+    /* Apply settings to port */
+    ret = tcsetattr(m_fd, TCSANOW, &serial_settings);
+    if (ret < 0) {
+        perror("Failed to apply settings to serial port");
+        return -errno;
+    }
+
     return 0;
 }
 
 int SerialInterface::close()
 {
+    int ret = ::close(m_fd);
+    m_fd = -1;
+    if (ret < 0) {
+        perror("Failed to close serial port");
+        return -errno;
+    }
+
     return 0;
 }
 
 int SerialInterface::receive()
 {
-    return 0;
+    if (m_fd < 0) {
+        return -ENOTCONN;
+    }
+
+    int ret = 0;
+
+    ssize_t size = read(m_fd, m_buffer, sizeof(m_buffer));
+    if (size < 0) {
+        if (errno == EAGAIN) {
+            return 0;
+        } else {
+            perror("Failed to read from serial port");
+            return -errno;
+        }
+    } else if (size == 0) {
+        perror("Reached EOF on serial port");
+        return -ENOTCONN;
+    }
+
+    int ll_ret;
+    for (ssize_t i = 0; i < size; i++) {
+        ll_ret = m_ll_msg.append_byte(m_buffer[i]);
+        if (ll_ret != LL_MSG_OK) {
+            fprintf(stderr, "Invalid byte received from serial (%u): %s\n",
+                    m_buffer[i], LowLevelMessage::str_error(ll_ret));
+            ret = -EBADMSG;
+        }
+        if (m_ll_msg.ready()) {
+            m_msg_queue.push(m_ll_msg);
+            m_ll_msg.reset();
+        }
+    }
+
+    return ret;
 }
 
 int SerialInterface::available() const
@@ -36,5 +124,33 @@ LowLevelMessage SerialInterface::getLastMessage()
 
 int SerialInterface::sendMessage(const LowLevelMessage &message)
 {
+    if (m_fd < 0) {
+        return -ENOTCONN;
+    }
+
+    ssize_t size = message.get_frame_with_cid(m_buffer,
+            SERIAL_INTERFACE_BUFFER_SIZE);
+    if (size < 0) {
+        return size;
+    }
+
+    ssize_t nb_bytes_sent = 0;
+    while (nb_bytes_sent < size) {
+        ssize_t ret = write(m_fd, m_buffer + nb_bytes_sent,
+                size - nb_bytes_sent);
+        if (ret < 0) {
+            if (ret != EAGAIN) {
+                perror("Failed to send message on serial");
+                return -errno;
+            }
+        } else if (ret == 0) {
+            fprintf(stderr,
+                    "Failed to send message on serial (zero bytes written)\n");
+            return -ENOTCONN;
+        } else {
+            nb_bytes_sent += ret;
+        }
+    }
+
     return 0;
 }
