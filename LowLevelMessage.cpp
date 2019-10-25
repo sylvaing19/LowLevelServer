@@ -1,6 +1,9 @@
 #include <stdexcept>
 #include "LowLevelMessage.h"
 
+#define HEADER_BYTE (0xFF)
+#define INFO_FRAME_LENGTH (0xFF)
+
 LowLevelMessage::LowLevelMessage(LowLevelMessageSide msg_side)
 {
     switch (msg_side) {

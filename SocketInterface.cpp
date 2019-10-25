@@ -81,6 +81,9 @@ int SocketInterface::close()
     int errcode = 0;
 
     for (size_t i = 0; i < SOCK_INTERFACE_MAX_CLIENTS; i++) {
+        if (m_clients[i].fd < 0) {
+            continue;
+        }
         ret = ::close(m_clients[i].fd);
         if (ret < 0) {
             perror("Failed to close client socket");

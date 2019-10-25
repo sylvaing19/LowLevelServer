@@ -6,8 +6,6 @@
 
 #define UNKNOWN_CLIENT_ID (-1)
 #define BROADCAST_CLIENT_ID (0xFE)
-#define HEADER_BYTE (0xFF)
-#define INFO_FRAME_LENGTH (0xFF)
 
 enum LowLevelMessageErr {
     LL_MSG_OK = 0,

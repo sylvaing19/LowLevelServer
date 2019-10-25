@@ -5,7 +5,7 @@
 #include "LowLevelMessage.h"
 
 #define SOCK_INTERFACE_MAX_CLIENTS 32
-#define SOCK_INTERFACE_BUFFER_SIZE 258
+#define SOCK_INTERFACE_BUFFER_SIZE 1024
 
 class SocketInterface
 {
