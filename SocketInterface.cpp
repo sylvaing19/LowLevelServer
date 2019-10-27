@@ -103,27 +103,23 @@ int SocketInterface::close()
     return errcode;
 }
 
-int SocketInterface::receive()
+void SocketInterface::receive()
 {
     if (m_fd < 0) {
-        return -ENOTCONN;
+        return;
     }
-
-    int ret = 0;
 
     /* New clients connection */
     int new_client = accept(m_fd, NULL, 0);
     if (new_client < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
             perror("Failed to accept connection");
-            ret = -errno;
         }
     } else {
         int client_id = registerClient(new_client);
         if (client_id < 0) {
             fprintf(stderr, "Failed to register new client: %s\n",
                     strerror(-client_id));
-            ret = client_id;
         }
     }
 
@@ -134,19 +130,19 @@ int SocketInterface::receive()
         }
         ssize_t size = recv(m_clients[i].fd, m_buffer, sizeof(m_buffer), 0);
         if (size == 0) {
-            ret = freeClient(i);
+            freeClient(i);
         } else if (size < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 perror("Failed to read from client");
-                ret = -errno;
+                freeClient(i);
             }
         } else {
             for (ssize_t k = 0; k < size; k++) {
                 int ll_ret = m_clients[i].message.append_byte(m_buffer[k]);
                 if (ll_ret != LL_MSG_OK) {
-                    fprintf(stderr, "Invalid byte received from client #%lu (%u): %s\n",
+                    fprintf(stderr,
+                            "Invalid byte received from client #%lu (%u): %s\n",
                             i, m_buffer[k], LowLevelMessage::str_error(ll_ret));
-                    ret = -EBADMSG;
                 }
                 if (m_clients[i].message.ready()) {
                     m_msg_queue.push(m_clients[i].message);
@@ -155,8 +151,6 @@ int SocketInterface::receive()
             }
         }
     }
-
-    return ret;
 }
 
 int SocketInterface::available() const
@@ -171,25 +165,30 @@ LowLevelMessage SocketInterface::getLastMessage()
     return ret;
 }
 
-int SocketInterface::sendMessage(const LowLevelMessage &message)
+void SocketInterface::sendMessage(const LowLevelMessage &message)
 {
     if (m_fd < 0) {
-        return -ENOTCONN;
+        return;
     }
 
     int client_id = message.get_client_id();
     if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS ||
             client_id == BROADCAST_CLIENT_ID) {
-        return -EINVAL;
+        fprintf(stderr, "Invalid client ID (%d)\n", client_id);
+        return;
     }
     if (m_clients[client_id].fd < 0) {
-        return -ENOTCONN;
+        fprintf(stderr, "Client %d is not connected\n", client_id);
+        return;
     }
 
     ssize_t size = message.get_frame_without_cid(m_buffer,
             SOCK_INTERFACE_BUFFER_SIZE);
     if (size < 0) {
-        return size;
+        fprintf(stderr,
+                "LowLevelMessage::get_frame_without_cid: invalid message (%s)\n",
+                strerror(-size));
+        return;
     }
 
     ssize_t nb_bytes_sent = 0;
@@ -200,19 +199,17 @@ int SocketInterface::sendMessage(const LowLevelMessage &message)
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 perror("Failed to send message on socket");
                 freeClient(client_id);
-                return -errno;
+                return;
             }
         } else if (ret == 0) {
             fprintf(stderr,
                     "Failed to send message on socket (zero bytes written)\n");
             freeClient(client_id);
-            return -ENOTCONN;
+            return;
         } else {
             nb_bytes_sent += ret;
         }
     }
-
-    return 0;
 }
 
 int SocketInterface::registerClient(int fd)

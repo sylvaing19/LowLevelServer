@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <termios.h>
 #include <unistd.h>
+#include <cstring>
 
 SerialInterface::SerialInterface() :
     m_ll_msg(LL_MSG_SIDE_SERIAL)
@@ -64,6 +65,7 @@ int SerialInterface::close()
 {
     int ret = ::close(m_fd);
     m_fd = -1;
+    m_ll_msg.reset();
     if (ret < 0) {
         perror("Failed to close serial port");
         return -errno;
@@ -77,8 +79,6 @@ int SerialInterface::receive()
     if (m_fd < 0) {
         return -ENOTCONN;
     }
-
-    int ret = 0;
 
     ssize_t size = read(m_fd, m_buffer, sizeof(m_buffer));
     if (size < 0) {
@@ -99,7 +99,6 @@ int SerialInterface::receive()
         if (ll_ret != LL_MSG_OK) {
             fprintf(stderr, "Invalid byte received from serial (%u): %s\n",
                     m_buffer[i], LowLevelMessage::str_error(ll_ret));
-            ret = -EBADMSG;
         }
         if (m_ll_msg.ready()) {
             m_msg_queue.push(m_ll_msg);
@@ -107,7 +106,7 @@ int SerialInterface::receive()
         }
     }
 
-    return ret;
+    return 0;
 }
 
 int SerialInterface::available() const
@@ -131,7 +130,10 @@ int SerialInterface::sendMessage(const LowLevelMessage &message)
     ssize_t size = message.get_frame_with_cid(m_buffer,
             SERIAL_INTERFACE_BUFFER_SIZE);
     if (size < 0) {
-        return size;
+        fprintf(stderr,
+                "LowLevelMessage::get_frame_with_cid: invalid message (%s)\n",
+                strerror(-size));
+        return 0;
     }
 
     ssize_t nb_bytes_sent = 0;

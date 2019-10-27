@@ -6,6 +6,7 @@
 
 #define UNKNOWN_CLIENT_ID (-1)
 #define BROADCAST_CLIENT_ID (0xFE)
+#define DATA_CHANNEL_COUNT 32
 
 enum LowLevelMessageErr {
     LL_MSG_OK = 0,

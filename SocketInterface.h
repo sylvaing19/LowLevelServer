@@ -15,10 +15,10 @@ public:
 
     int open(const char *address_string, uint16_t server_port);
     int close();
-    int receive();
+    void receive();
     int available() const;
     LowLevelMessage getLastMessage();
-    int sendMessage(const LowLevelMessage &message);
+    void sendMessage(const LowLevelMessage &message);
 
 private:
     int registerClient(int fd);
