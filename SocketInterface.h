@@ -18,7 +18,7 @@ public:
     void receive();
     int available() const;
     LowLevelMessage getLastMessage();
-    void sendMessage(const LowLevelMessage &message);
+    void sendMessage(const LowLevelMessage &message, int cid = UNKNOWN_CLIENT_ID);
 
 private:
     int registerClient(int fd);

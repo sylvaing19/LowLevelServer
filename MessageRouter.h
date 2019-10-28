@@ -18,6 +18,7 @@ public:
 
     int open();
     int close();
+    bool isOpen();
 
     /* Returns 0 on normal operation, -1 in case of error.
      * In case of error, the object is always closed, so open()

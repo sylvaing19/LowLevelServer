@@ -165,15 +165,19 @@ LowLevelMessage SocketInterface::getLastMessage()
     return ret;
 }
 
-void SocketInterface::sendMessage(const LowLevelMessage &message)
+void SocketInterface::sendMessage(const LowLevelMessage &message, int cid)
 {
     if (m_fd < 0) {
         return;
     }
 
-    int client_id = message.get_client_id();
-    if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS ||
-            client_id == BROADCAST_CLIENT_ID) {
+    int client_id;
+    if (message.is_broadcast()) {
+        client_id = cid;
+    } else {
+        client_id = message.get_client_id();
+    }
+    if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS) {
         fprintf(stderr, "Invalid client ID (%d)\n", client_id);
         return;
     }

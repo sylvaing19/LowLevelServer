@@ -1,24 +1,85 @@
-//
-// Created by Sylvain on 18/10/2019.
-//
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
+#include <cstring>
 
-#include <iostream>
-#include "LowLevelMessage.h"
-#include "SocketInterface.h"
-#include "SerialInterface.h"
+#include "MessageRouter.h"
 
-int main(int argc, const char * argv[])
+/* Default settings */
+#define DEFAULT_IP_ADDRESS "172.16.0.2"
+#define DEFAULT_TCP_PORT 80
+#define DEFAULT_SERIAL_PORT "/dev/ttyAMA0"
+
+/* Signal handler for CTRL+C */
+bool ctrl_c_pressed = false;
+void ctrl_c(int)
 {
-    LowLevelMessage ll_msg(LL_MSG_SIDE_SOCKET);
-    SocketInterface tcp_interface;
-    SerialInterface tty_interface;
+    ctrl_c_pressed = true;
+}
 
-    tcp_interface.open("127.0.0.1", 2223);
-    tcp_interface.close();
+int main(int argc, char *argv[])
+{
+    /* Init settings to default values */
+    const char *ip_address = DEFAULT_IP_ADDRESS;
+    uint16_t tcp_port = DEFAULT_TCP_PORT;
+    const char *serial_port = DEFAULT_SERIAL_PORT;
 
-    tty_interface.open("COM3");
-    tty_interface.close();
+    /* Read settings from arguments if provided */
+    int opt;
+    while ((opt = getopt(argc, argv, "a:p:s:")) != -1) {
+        switch (opt) {
+            case 'a':
+                ip_address = optarg;
+                break;
+            case 'p': {
+                unsigned long p = strtoul(optarg, nullptr, 10);
+                if (p > 0 && p <= UINT16_MAX) {
+                    tcp_port = p;
+                } else {
+                    fprintf(stderr, "Invalid TCP port provided\n");
+                    exit(EXIT_FAILURE);
+                }
+                break;
+            }
+            case 's':
+                serial_port = optarg;
+                break;
+            default: /* '?' */
+                fprintf(stderr, "Usage: %s [-a ip address] [-p tcp port] "
+                                "[-s serial port]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
 
-    std::cout << "Lol world" << std::endl;
+    /* Instantiate router */
+    MessageRouter message_router;
+    message_router.setSocketAddress(ip_address);
+    message_router.setSocketPort(tcp_port);
+    message_router.setSerialPort(serial_port);
+
+    signal(SIGINT, ctrl_c);
+    int ret;
+    while (!ctrl_c_pressed) {
+
+        while (!message_router.isOpen() && !ctrl_c_pressed) {
+            ret = message_router.open();
+            if (ret < 0) {
+                fprintf(stderr, "Failed to open message router: %s\n",
+                        strerror(-ret));
+                usleep(1000000);
+            }
+        }
+
+        while (!ctrl_c_pressed) {
+            ret = message_router.communicate();
+            if (ret < 0) {
+                fprintf(stderr, "Communication error: %s\n", strerror(-ret));
+                break;
+            }
+        }
+    }
+
+    message_router.close();
     return 0;
 }

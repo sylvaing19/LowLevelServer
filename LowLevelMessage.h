@@ -5,7 +5,6 @@
 #include <sys/types.h>
 
 #define UNKNOWN_CLIENT_ID (-1)
-#define BROADCAST_CLIENT_ID (0xFE)
 #define DATA_CHANNEL_COUNT 32
 
 enum LowLevelMessageErr {
@@ -33,6 +32,11 @@ public:
 
     void set_client_id(int client_id);
     int get_client_id() const;
+    bool is_broadcast() const;
+
+    bool is_data_channel_msg() const;
+    unsigned int get_data_channel() const;
+    int is_subscription_msg(bool &subscribe) const;
 
     ssize_t get_frame_with_cid(uint8_t *buf, size_t size) const;
     ssize_t get_frame_without_cid(uint8_t *buf, size_t size) const;
@@ -54,4 +58,7 @@ private:
     ReadState m_read_state;
     unsigned int m_payload_length;
     bool m_read_until_eof;
+    bool m_data_channel_msg;
+    unsigned int m_data_channel;
+
 };

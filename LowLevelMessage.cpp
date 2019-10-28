@@ -3,6 +3,7 @@
 
 #define HEADER_BYTE (0xFF)
 #define INFO_FRAME_LENGTH (0xFF)
+#define BROADCAST_CLIENT_ID (0xFE)
 
 LowLevelMessage::LowLevelMessage(LowLevelMessageSide msg_side)
 {
@@ -20,6 +21,8 @@ LowLevelMessage::LowLevelMessage(LowLevelMessageSide msg_side)
     m_read_state = HEADER;
     m_payload_length = 0;
     m_read_until_eof = false;
+    m_data_channel_msg = false;
+    m_data_channel = 0;
 }
 
 LowLevelMessage::~LowLevelMessage() = default;
@@ -49,6 +52,10 @@ int LowLevelMessage::append_byte(uint8_t byte)
             }
             break;
         case COMMAND:
+            if (byte < DATA_CHANNEL_COUNT) {
+                m_data_channel_msg = true;
+                m_data_channel = byte;
+            }
             m_frame.push_back(byte);
             m_read_state = LENGTH;
             break;
@@ -110,6 +117,8 @@ void LowLevelMessage::reset()
     m_read_state = HEADER;
     m_payload_length = 0;
     m_read_until_eof = false;
+    m_data_channel_msg = false;
+    m_data_channel = 0;
 }
 
 void LowLevelMessage::set_client_id(int client_id)
@@ -122,6 +131,34 @@ void LowLevelMessage::set_client_id(int client_id)
 int LowLevelMessage::get_client_id() const
 {
     return m_client_id;
+}
+
+bool LowLevelMessage::is_broadcast() const
+{
+    return m_client_id == BROADCAST_CLIENT_ID;
+}
+
+bool LowLevelMessage::is_data_channel_msg() const
+{
+    return m_data_channel_msg;
+}
+
+unsigned int LowLevelMessage::get_data_channel() const
+{
+    return m_data_channel;
+}
+
+int LowLevelMessage::is_subscription_msg(bool &subscribe) const
+{
+    if (m_read_client_id || !m_data_channel_msg) {
+        return -1;
+    }
+    if (m_frame.size() != 3) {
+        return -1;
+    }
+
+    subscribe = m_frame.at(2);
+    return 0;
 }
 
 ssize_t LowLevelMessage::get_frame_with_cid(uint8_t *buf, size_t size) const

@@ -1,6 +1,7 @@
 #include "MessageRouter.h"
 
 #include <cerrno>
+#include <cstdio>
 
 #define DEFAULT_SUBSCRIPTION 0x06
 
@@ -79,6 +80,11 @@ int MessageRouter::close()
     }
 }
 
+bool MessageRouter::isOpen()
+{
+    return m_opened;
+}
+
 int MessageRouter::communicate()
 {
     if (!m_opened) {
@@ -112,9 +118,49 @@ int MessageRouter::communicate()
 
 void MessageRouter::processMsgFromSerial(const LowLevelMessage &msg)
 {
+    if (msg.is_broadcast() != msg.is_data_channel_msg()) {
+        fprintf(stderr, "Invalid message received on serial "
+                        "(broadcast <-> data_channel mismatch\n");
+        return;
+    }
+
+    if (msg.is_data_channel_msg()) {
+        for (int i = 0; i < SOCK_INTERFACE_MAX_CLIENTS; i++) {
+            if (m_subscriptions[i] & (1 << msg.get_data_channel())) {
+                m_socket_interface.sendMessage(msg, i);
+            }
+        }
+        // todo : log message once
+    } else {
+        m_socket_interface.sendMessage(msg);
+        // todo : log message
+    }
 }
 
 int MessageRouter::processMsgFromSocket(const LowLevelMessage &msg)
 {
-    return 0;
+    int ret;
+    bool sub_msg;
+    ret = msg.is_subscription_msg(sub_msg);
+    if (ret == 0) {
+        int client_id = msg.get_client_id();
+        if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS) {
+            fprintf(stderr, "Invalid message received on socket: "
+                            "client_id==%d\n", client_id);
+            return 0;
+        }
+
+        unsigned int channel = msg.get_data_channel();
+        if (sub_msg) {
+            m_subscriptions[client_id] |= (1 << channel);
+        } else {
+            m_subscriptions[client_id] &= ~(1 << channel);
+        }
+        // todo : log message
+        return 0;
+    } else {
+        ret = m_serial_interface.sendMessage(msg);
+        // todo : log message
+        return ret;
+    }
 }
