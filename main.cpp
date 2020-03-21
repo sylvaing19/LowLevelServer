@@ -8,12 +8,12 @@
 #include "Pause.h"
 
 /* Default settings */
-#define DEFAULT_IP_ADDRESS "192.168.0.17"
+#define DEFAULT_IP_ADDRESS "172.16.0.2"
 #define DEFAULT_TCP_PORT 80
-#define DEFAULT_SERIAL_PORT "/dev/ttyS3"
-#define DEFAULT_PAUSE_IP_ADDRESS "192.168.0.17"
-#define DEFAULT_PAUSE_TCP_PORT 4242
-#define DEFAULT_PAUSE_TOKEN 42
+#define DEFAULT_SERIAL_PORT "/dev/ttyAMA0"
+#define DEFAULT_PAUSE_IP_ADDRESS "127.0.0.1"
+#define DEFAULT_PAUSE_TCP_PORT 23747
+#define DEFAULT_PAUSE_TOKEN 19
 
 /* Signal handler for CTRL+C */
 bool ctrl_c_pressed = false;
