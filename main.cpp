@@ -7,9 +7,9 @@
 #include "MessageRouter.h"
 
 /* Default settings */
-#define DEFAULT_IP_ADDRESS "172.16.0.2"
+#define DEFAULT_IP_ADDRESS "192.168.0.17"
 #define DEFAULT_TCP_PORT 80
-#define DEFAULT_SERIAL_PORT "/dev/ttyAMA0"
+#define DEFAULT_SERIAL_PORT "/dev/ttyS3"
 
 /* Signal handler for CTRL+C */
 bool ctrl_c_pressed = false;
@@ -58,6 +58,8 @@ int main(int argc, char *argv[])
     message_router.setSocketPort(tcp_port);
     message_router.setSerialPort(serial_port);
 
+    printf("LowLevelServer started\n");
+
     signal(SIGINT, ctrl_c);
     int ret;
     while (!ctrl_c_pressed) {
@@ -65,8 +67,8 @@ int main(int argc, char *argv[])
         while (!message_router.isOpen() && !ctrl_c_pressed) {
             ret = message_router.open();
             if (ret < 0) {
-                fprintf(stderr, "Failed to open message router: %s\n",
-                        strerror(-ret));
+                fprintf(stderr, "Failed to open message router: %d (%s)\n",
+                        ret, strerror(-ret));
                 usleep(1000000);
             }
         }

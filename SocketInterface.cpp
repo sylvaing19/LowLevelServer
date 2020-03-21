@@ -43,9 +43,12 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     ret = inet_pton(AF_INET, address_string, &server_address.sin_addr);
     if (ret < 0) {
         perror("Failed to convert IP address string");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     } else if (ret != 1) {
-        perror("Invalid IP address string provided");
+        fprintf(stderr, "Invalid IP address string provided\n");
+        close();
         return -EINVAL;
     }
 
@@ -55,21 +58,27 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
             (const char *)(&option_value), sizeof(option_value));
     if (ret < 0) {
         perror("Failed to set socket options");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     // Bind socket to address
     ret = bind(m_fd, (sockaddr*)(&server_address), sizeof(server_address));
     if (ret < 0) {
         perror("Failed to perform socket binding");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     // Start listening
     ret = listen(m_fd, SOCK_INTERFACE_MAX_CLIENTS);
     if (ret < 0) {
         perror("Failed to start listening on the socket");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     return 0;
@@ -128,7 +137,8 @@ void SocketInterface::receive()
         if (m_clients[i].fd < 0) {
             continue;
         }
-        ssize_t size = recv(m_clients[i].fd, m_buffer, sizeof(m_buffer), 0);
+        ssize_t size = recv(m_clients[i].fd, m_buffer, sizeof(m_buffer),
+                MSG_DONTWAIT);
         if (size == 0) {
             freeClient(i);
         } else if (size < 0) {
@@ -182,7 +192,6 @@ void SocketInterface::sendMessage(const LowLevelMessage &message, int cid)
         return;
     }
     if (m_clients[client_id].fd < 0) {
-        fprintf(stderr, "Client %d is not connected\n", client_id);
         return;
     }
 

@@ -31,7 +31,9 @@ int SerialInterface::open(const char *port)
     ret = tcgetattr(m_fd, &serial_settings);
     if (ret < 0) {
         perror("Failed to read port settings");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     /* Set RAW serial port */
@@ -48,14 +50,18 @@ int SerialInterface::open(const char *port)
     ret = tcflush(m_fd, TCIFLUSH);
     if (ret < 0) {
         perror("Failed to flush serial port");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     /* Apply settings to port */
     ret = tcsetattr(m_fd, TCSANOW, &serial_settings);
     if (ret < 0) {
         perror("Failed to apply settings to serial port");
-        return -errno;
+        ret = -errno;
+        close();
+        return ret;
     }
 
     return 0;
@@ -89,7 +95,7 @@ int SerialInterface::receive()
             return -errno;
         }
     } else if (size == 0) {
-        perror("Reached EOF on serial port");
+        fprintf(stderr, "Reached EOF on serial port\n");
         return -ENOTCONN;
     }
 

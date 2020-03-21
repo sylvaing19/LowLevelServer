@@ -52,6 +52,7 @@ int MessageRouter::open()
 
     ret = m_socket_interface.open(m_ip_address, m_tcp_port);
     if (ret < 0) {
+        m_serial_interface.close();
         return ret;
     }
 
