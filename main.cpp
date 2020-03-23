@@ -14,6 +14,7 @@
 #define DEFAULT_PAUSE_IP_ADDRESS "127.0.0.1"
 #define DEFAULT_PAUSE_TCP_PORT 23747
 #define DEFAULT_PAUSE_TOKEN 19
+#define DEFAULT_LOG_FOLDER "."
 
 /* Signal handler for CTRL+C */
 bool ctrl_c_pressed = false;
@@ -33,10 +34,11 @@ int main(int argc, char *argv[])
     const char *pause_ip_address = DEFAULT_PAUSE_IP_ADDRESS;
     uint16_t pause_tcp_port = DEFAULT_PAUSE_TCP_PORT;
     uint8_t pause_token = DEFAULT_PAUSE_TOKEN;
+    const char *log_folder = DEFAULT_LOG_FOLDER;
 
     /* Read settings from arguments if provided */
     int opt;
-    while ((opt = getopt(argc, argv, "a:p:s:b:q:t:")) != -1) {
+    while ((opt = getopt(argc, argv, "a:p:s:b:q:t:l:")) != -1) {
         switch (opt) {
             case 'a':
                 ip_address = optarg;
@@ -77,6 +79,9 @@ int main(int argc, char *argv[])
                 }
                 break;
             }
+            case 'l':
+                log_folder = optarg;
+                break;
             default: /* '?' */
                 fprintf(stderr, "Usage: %s [-a ip address] [-p tcp port] "
                                 "[-s serial port] [-b pause ip address] "
@@ -103,7 +108,7 @@ int main(int argc, char *argv[])
         exit(-ret);
     }
 
-    printf("LowLevelServer started\n");
+    printf("LowLevelServer started with log folder: %s\n", log_folder);
 
     signal(SIGINT, ctrl_c);
     while (!ctrl_c_pressed) {
@@ -113,7 +118,7 @@ int main(int argc, char *argv[])
                     tcp_port, serial_port);
             ret = message_router.open();
             if (ret < 0) {
-                fprintf(stderr, "Failed to open message router: %d (%s)\n",
+                printf("Failed to open message router: %d (%s)\n",
                         ret, strerror(-ret));
                 usleep(1000000);
             }
