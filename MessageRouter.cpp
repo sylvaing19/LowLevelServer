@@ -120,8 +120,8 @@ int MessageRouter::communicate()
 void MessageRouter::processMsgFromSerial(const LowLevelMessage &msg)
 {
     if (msg.is_broadcast() != msg.is_data_channel_msg()) {
-        fprintf(stderr, "Invalid message received on serial "
-                        "(broadcast <-> data_channel mismatch\n");
+        printf("Invalid message received on serial "
+               "(broadcast <-> data_channel mismatch\n");
         return;
     }
 
@@ -146,8 +146,8 @@ int MessageRouter::processMsgFromSocket(const LowLevelMessage &msg)
     if (ret == 0) {
         int client_id = msg.get_client_id();
         if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS) {
-            fprintf(stderr, "Invalid message received on socket: "
-                            "client_id==%d\n", client_id);
+            printf("Invalid message received on socket: client_id==%d\n",
+                    client_id);
             return 0;
         }
 

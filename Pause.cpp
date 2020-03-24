@@ -22,14 +22,14 @@ int Pause::open(const char *address_string, uint16_t server_port, uint8_t token)
 
     // If socket already created, return error
     if (m_server >= 0) {
-        perror("Socket interface already opened");
+        printf("Socket interface already opened\n");
         return -EEXIST;
     }
 
     // Create the socket (non blocking)
     m_server = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
     if (m_server < 0) {
-        perror("Failed to create socket");
+        printf("Failed to create socket: %d (%s)\n", -errno, strerror(errno));
         return -errno;
     }
 
@@ -41,12 +41,13 @@ int Pause::open(const char *address_string, uint16_t server_port, uint8_t token)
 
     ret = inet_pton(AF_INET, address_string, &server_address.sin_addr);
     if (ret < 0) {
-        perror("Failed to convert IP address string");
+        printf("Failed to convert IP address string: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
     } else if (ret != 1) {
-        fprintf(stderr, "Invalid IP address string provided\n");
+        printf("Invalid IP address string provided\n");
         close();
         return -EINVAL;
     }
@@ -56,7 +57,8 @@ int Pause::open(const char *address_string, uint16_t server_port, uint8_t token)
     ret = setsockopt(m_server, SOL_SOCKET, (SO_REUSEADDR | SO_REUSEPORT),
                      (const char *)(&option_value), sizeof(option_value));
     if (ret < 0) {
-        perror("Failed to set socket options");
+        printf("Failed to set socket options: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -65,7 +67,8 @@ int Pause::open(const char *address_string, uint16_t server_port, uint8_t token)
     // Bind socket to address
     ret = bind(m_server, (sockaddr*)(&server_address), sizeof(server_address));
     if (ret < 0) {
-        perror("Failed to perform socket binding");
+        printf("Failed to perform socket binding: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -74,7 +77,8 @@ int Pause::open(const char *address_string, uint16_t server_port, uint8_t token)
     // Start listening
     ret = listen(m_server, 1);
     if (ret < 0) {
-        perror("Failed to start listening on the socket");
+        printf("Failed to start listening on the socket: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;

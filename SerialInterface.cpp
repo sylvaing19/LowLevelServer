@@ -23,14 +23,16 @@ int SerialInterface::open(const char *port)
     /* Open serial port */
     m_fd = ::open(port, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (m_fd < 0) {
-        perror("Failed to open serial port");
+        printf("Failed to open serial port: %d (%s)\n", -errno,
+                strerror(errno));
         return -errno;
     }
 
     /* Read serial port settings */
     ret = tcgetattr(m_fd, &serial_settings);
     if (ret < 0) {
-        perror("Failed to read port settings");
+        printf("Failed to read port settings: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -49,7 +51,8 @@ int SerialInterface::open(const char *port)
     /* Flush port */
     ret = tcflush(m_fd, TCIFLUSH);
     if (ret < 0) {
-        perror("Failed to flush serial port");
+        printf("Failed to flush serial port: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -58,7 +61,8 @@ int SerialInterface::open(const char *port)
     /* Apply settings to port */
     ret = tcsetattr(m_fd, TCSANOW, &serial_settings);
     if (ret < 0) {
-        perror("Failed to apply settings to serial port");
+        printf("Failed to apply settings to serial port: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -73,7 +77,8 @@ int SerialInterface::close()
     m_fd = -1;
     m_ll_msg.reset();
     if (ret < 0) {
-        perror("Failed to close serial port");
+        printf("Failed to close serial port: %d (%s)\n", -errno,
+                strerror(errno));
         return -errno;
     }
 
@@ -91,11 +96,12 @@ int SerialInterface::receive()
         if (errno == EAGAIN) {
             return 0;
         } else {
-            perror("Failed to read from serial port");
+            printf("Failed to read from serial port: %d (%s)\n", -errno,
+                    strerror(errno));
             return -errno;
         }
     } else if (size == 0) {
-        fprintf(stderr, "Reached EOF on serial port\n");
+        printf("Reached EOF on serial port\n");
         return -ENOTCONN;
     }
 
@@ -103,7 +109,7 @@ int SerialInterface::receive()
     for (ssize_t i = 0; i < size; i++) {
         ll_ret = m_ll_msg.append_byte(m_buffer[i]);
         if (ll_ret != LL_MSG_OK) {
-            fprintf(stderr, "Invalid byte received from serial (%u): %s\n",
+            printf("Invalid byte received from serial (%u): %s\n",
                     m_buffer[i], LowLevelMessage::str_error(ll_ret));
         }
         if (m_ll_msg.ready()) {
@@ -136,9 +142,8 @@ int SerialInterface::sendMessage(const LowLevelMessage &message)
     ssize_t size = message.get_frame_with_cid(m_buffer,
             SERIAL_INTERFACE_BUFFER_SIZE);
     if (size < 0) {
-        fprintf(stderr,
-                "LowLevelMessage::get_frame_with_cid: invalid message (%s)\n",
-                strerror(-size));
+        printf("LowLevelMessage::get_frame_with_cid: "
+               "invalid message: %ld (%s)\n", size, strerror(-size));
         return 0;
     }
 
@@ -148,12 +153,12 @@ int SerialInterface::sendMessage(const LowLevelMessage &message)
                 size - nb_bytes_sent);
         if (ret < 0) {
             if (ret != EAGAIN) {
-                perror("Failed to send message on serial");
+                printf("Failed to send message on serial: %d (%s)\n", -errno,
+                        strerror(errno));
                 return -errno;
             }
         } else if (ret == 0) {
-            fprintf(stderr,
-                    "Failed to send message on serial (zero bytes written)\n");
+            printf("Failed to send message on serial (zero bytes written)\n");
             return -ENOTCONN;
         } else {
             nb_bytes_sent += ret;

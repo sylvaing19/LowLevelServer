@@ -23,14 +23,14 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
 
     // If socket already created, return error
     if (m_fd >= 0) {
-        perror("Socket interface already opened");
+        printf("Socket interface already opened\n");
         return -EEXIST;
     }
 
     // Create the socket (non blocking)
     m_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
     if (m_fd < 0) {
-        perror("Failed to create socket");
+        printf("Failed to create socket: %d (%s)\n", -errno, strerror(errno));
         return -errno;
     }
 
@@ -42,12 +42,13 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
 
     ret = inet_pton(AF_INET, address_string, &server_address.sin_addr);
     if (ret < 0) {
-        perror("Failed to convert IP address string");
+        printf("Failed to convert IP address string: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
     } else if (ret != 1) {
-        fprintf(stderr, "Invalid IP address string provided\n");
+        printf("Invalid IP address string provided\n");
         close();
         return -EINVAL;
     }
@@ -57,7 +58,8 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     ret = setsockopt(m_fd, SOL_SOCKET, (SO_REUSEADDR | SO_REUSEPORT),
             (const char *)(&option_value), sizeof(option_value));
     if (ret < 0) {
-        perror("Failed to set socket options");
+        printf("Failed to set socket options: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -66,7 +68,8 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     // Bind socket to address
     ret = bind(m_fd, (sockaddr*)(&server_address), sizeof(server_address));
     if (ret < 0) {
-        perror("Failed to perform socket binding");
+        printf("Failed to perform socket binding: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -75,7 +78,8 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     // Start listening
     ret = listen(m_fd, SOCK_INTERFACE_MAX_CLIENTS);
     if (ret < 0) {
-        perror("Failed to start listening on the socket");
+        printf("Failed to start listening on the socket: %d (%s)\n", -errno,
+                strerror(errno));
         ret = -errno;
         close();
         return ret;
@@ -95,7 +99,8 @@ int SocketInterface::close()
         }
         ret = ::close(m_clients[i].fd);
         if (ret < 0) {
-            perror("Failed to close client socket");
+            printf("Failed to close client socket: %d (%s)\n", -errno,
+                    strerror(errno));
             errcode = -errno;
         }
         m_clients[i].fd = -1;
@@ -104,7 +109,8 @@ int SocketInterface::close()
 
     ret = ::close(m_fd);
     if (ret < 0) {
-        perror("Failed to close server socket");
+        printf("Failed to close server socket: %d (%s)\n", -errno,
+                strerror(errno));
         errcode = -errno;
     }
     m_fd = -1;
@@ -122,12 +128,13 @@ void SocketInterface::receive()
     int new_client = accept(m_fd, NULL, 0);
     if (new_client < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            perror("Failed to accept connection");
+            printf("Failed to accept connection: %d (%s)\n", -errno,
+                    strerror(errno));
         }
     } else {
         int client_id = registerClient(new_client);
         if (client_id < 0) {
-            fprintf(stderr, "Failed to register new client: %s\n",
+            printf("Failed to register new client: %d (%s)\n", client_id,
                     strerror(-client_id));
         }
     }
@@ -143,15 +150,15 @@ void SocketInterface::receive()
             freeClient(i);
         } else if (size < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                perror("Failed to read from client");
+                printf("Failed to read from client: %d (%s)\n", -errno,
+                        strerror(errno));
                 freeClient(i);
             }
         } else {
             for (ssize_t k = 0; k < size; k++) {
                 int ll_ret = m_clients[i].message.append_byte(m_buffer[k]);
                 if (ll_ret != LL_MSG_OK) {
-                    fprintf(stderr,
-                            "Invalid byte received from client #%lu (%u): %s\n",
+                    printf("Invalid byte received from client #%lu (%u): %s\n",
                             i, m_buffer[k], LowLevelMessage::str_error(ll_ret));
                 }
                 if (m_clients[i].message.ready()) {
@@ -188,7 +195,7 @@ void SocketInterface::sendMessage(const LowLevelMessage &message, int cid)
         client_id = message.get_client_id();
     }
     if (client_id < 0 || client_id >= SOCK_INTERFACE_MAX_CLIENTS) {
-        fprintf(stderr, "Invalid client ID (%d)\n", client_id);
+        printf("Invalid client ID (%d)\n", client_id);
         return;
     }
     if (m_clients[client_id].fd < 0) {
@@ -198,9 +205,8 @@ void SocketInterface::sendMessage(const LowLevelMessage &message, int cid)
     ssize_t size = message.get_frame_without_cid(m_buffer,
             SOCK_INTERFACE_BUFFER_SIZE);
     if (size < 0) {
-        fprintf(stderr,
-                "LowLevelMessage::get_frame_without_cid: invalid message (%s)\n",
-                strerror(-size));
+        printf("LowLevelMessage::get_frame_without_cid: "
+               "invalid message: %ld (%s)\n", size, strerror(-size));
         return;
     }
 
@@ -210,13 +216,13 @@ void SocketInterface::sendMessage(const LowLevelMessage &message, int cid)
                 size - nb_bytes_sent, MSG_NOSIGNAL);
         if (ret < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                perror("Failed to send message on socket");
+                printf("Failed to send message on socket: %d (%s)\n", -errno,
+                        strerror(errno));
                 freeClient(client_id);
                 return;
             }
         } else if (ret == 0) {
-            fprintf(stderr,
-                    "Failed to send message on socket (zero bytes written)\n");
+            printf("Failed to send message on socket (zero bytes written)\n");
             freeClient(client_id);
             return;
         } else {

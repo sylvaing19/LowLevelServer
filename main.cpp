@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
                 if (p > 0 && p <= UINT16_MAX) {
                     tcp_port = p;
                 } else {
-                    fprintf(stderr, "Invalid TCP port provided\n");
+                    printf("Invalid TCP port provided\n");
                     exit(EXIT_FAILURE);
                 }
                 break;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
                 if (p > 0 && p <= UINT16_MAX) {
                     pause_tcp_port = p;
                 } else {
-                    fprintf(stderr, "Invalid TCP port provided\n");
+                    printf("Invalid TCP port provided\n");
                     exit(EXIT_FAILURE);
                 }
                 break;
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
                 if (t <= UINT8_MAX) {
                     pause_token = t;
                 } else {
-                    fprintf(stderr, "Invalid pause token provided\n");
+                    printf("Invalid pause token provided\n");
                     exit(EXIT_FAILURE);
                 }
                 break;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
                 log_folder = optarg;
                 break;
             default: /* '?' */
-                fprintf(stderr, "Usage: %s [-a ip address] [-p tcp port] "
+                printf("Usage: %s [-a ip address] [-p tcp port] "
                                 "[-s serial port] [-b pause ip address] "
                                 "[-q pause tcp port] [-t pause token]\n",
                                 argv[0]);
@@ -103,8 +103,7 @@ int main(int argc, char *argv[])
             pause_tcp_port, pause_token);
     ret = pause.open(pause_ip_address, pause_tcp_port, pause_token);
     if (ret < 0) {
-        fprintf(stderr, "Failed to open pause socket: %d (%s)\n", ret,
-                strerror(-ret));
+        printf("Failed to open pause socket: %d (%s)\n", ret, strerror(-ret));
         exit(-ret);
     }
 
@@ -127,7 +126,8 @@ int main(int argc, char *argv[])
         while (!ctrl_c_pressed) {
             ret = message_router.communicate();
             if (ret < 0) {
-                fprintf(stderr, "Communication error: %s\n", strerror(-ret));
+                printf("Communication error: %d (%s)\n", ret, strerror(-ret));
+                usleep(1000000);
                 break;
             }
 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            usleep(1000);
+            usleep(1000); // avoid using too much CPU time
         }
     }
 
