@@ -10,7 +10,7 @@
 /* Default settings */
 #define DEFAULT_IP_ADDRESS "172.16.0.2"
 #define DEFAULT_TCP_PORT 80
-#define DEFAULT_SERIAL_PORT "/dev/ttyAMA0"
+#define DEFAULT_SERIAL_PORT "/dev/ttyACM0"
 #define DEFAULT_PAUSE_IP_ADDRESS "127.0.0.1"
 #define DEFAULT_PAUSE_TCP_PORT 23747
 #define DEFAULT_PAUSE_TOKEN 19
