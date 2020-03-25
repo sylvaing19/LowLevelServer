@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 
 #include "MessageRouter.h"
 #include "Pause.h"
@@ -15,6 +17,11 @@
 #define DEFAULT_PAUSE_TCP_PORT 23747
 #define DEFAULT_PAUSE_TOKEN 19
 #define DEFAULT_LOG_FOLDER "."
+#define DEFAULT_CONFIG_FILE "./low-level-server.conf"
+
+/* Configuration keys */
+#define CONF_KEY_IP_ADDRESS "IP_ADDRESS"
+#define CONF_KEY_TCP_PORT "TCP_PORT"
 
 /* Signal handler for CTRL+C */
 bool ctrl_c_pressed = false;
@@ -28,31 +35,22 @@ int main(int argc, char *argv[])
     int ret;
 
     /* Init settings to default values */
-    const char *ip_address = DEFAULT_IP_ADDRESS;
+    std::string ip_address = DEFAULT_IP_ADDRESS;
     uint16_t tcp_port = DEFAULT_TCP_PORT;
     const char *serial_port = DEFAULT_SERIAL_PORT;
     const char *pause_ip_address = DEFAULT_PAUSE_IP_ADDRESS;
     uint16_t pause_tcp_port = DEFAULT_PAUSE_TCP_PORT;
     uint8_t pause_token = DEFAULT_PAUSE_TOKEN;
     const char *log_folder = DEFAULT_LOG_FOLDER;
+    const char *config_file_name = DEFAULT_CONFIG_FILE;
 
     /* Read settings from arguments if provided */
     int opt;
-    while ((opt = getopt(argc, argv, "a:p:s:b:q:t:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:s:b:q:t:l:")) != -1) {
         switch (opt) {
-            case 'a':
-                ip_address = optarg;
+            case 'c':
+                config_file_name = optarg;
                 break;
-            case 'p': {
-                unsigned long p = strtoul(optarg, nullptr, 10);
-                if (p > 0 && p <= UINT16_MAX) {
-                    tcp_port = p;
-                } else {
-                    printf("Invalid TCP port provided\n");
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            }
             case 's':
                 serial_port = optarg;
                 break;
@@ -83,18 +81,15 @@ int main(int argc, char *argv[])
                 log_folder = optarg;
                 break;
             default: /* '?' */
-                printf("Usage: %s [-a ip address] [-p tcp port] "
-                                "[-s serial port] [-b pause ip address] "
-                                "[-q pause tcp port] [-t pause token]\n",
-                                argv[0]);
+                printf("Usage: %s [-c config file] [-s serial port] "
+                       "[-b pause ip address] [-q pause tcp port] "
+                       "[-t pause token] [-l log folder]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
     /* Instantiate router */
     MessageRouter message_router;
-    message_router.setSocketAddress(ip_address);
-    message_router.setSocketPort(tcp_port);
     message_router.setSerialPort(serial_port);
 
     /* Instantiate and open the pause socket */
@@ -107,14 +102,45 @@ int main(int argc, char *argv[])
         exit(-ret);
     }
 
-    printf("LowLevelServer started with log folder: %s\n", log_folder);
+    printf("LowLevelServer started with config file '%s' and log folder '%s'\n",
+            config_file_name, log_folder);
 
     signal(SIGINT, ctrl_c);
     while (!ctrl_c_pressed) {
 
         while (!message_router.isOpen() && !ctrl_c_pressed) {
-            printf("Open message router between %s:%u and %s\n", ip_address,
-                    tcp_port, serial_port);
+
+            /* Read config file to get IP address and TCP port */
+            std::ifstream config_file(config_file_name);
+            if(config_file.fail()) {
+                printf("Failed to open config file: %s\n", config_file_name);
+            } else {
+                std::string line;
+                while (std::getline(config_file, line)) {
+                    std::istringstream is_line(line);
+                    std::string key, value;
+                    if (!std::getline(is_line, key, '=')) {
+                        continue;
+                    }
+                    if (!std::getline(is_line, value)) {
+                        continue;
+                    }
+                    if (strcmp(CONF_KEY_IP_ADDRESS, key.c_str()) == 0) {
+                        ip_address = value;
+                    } else if (strcmp(CONF_KEY_TCP_PORT, key.c_str()) == 0) {
+                        unsigned long p = std::stoul(value);
+                        if (p > 0 && p <= UINT16_MAX) {
+                            tcp_port = p;
+                        }
+                    }
+                }
+            }
+            config_file.close();
+
+            message_router.setSocketAddress(ip_address.c_str());
+            message_router.setSocketPort(tcp_port);
+            printf("Open message router between %s:%u and %s\n",
+                    ip_address.c_str(), tcp_port, serial_port);
             ret = message_router.open();
             if (ret < 0) {
                 printf("Failed to open message router: %d (%s)\n",
