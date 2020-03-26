@@ -45,14 +45,14 @@ int MessageRouter::open()
 
     int ret;
 
-    ret = m_serial_interface.open(m_serial_port);
+    ret = m_socket_interface.open(m_ip_address, m_tcp_port);
     if (ret < 0) {
         return ret;
     }
 
-    ret = m_socket_interface.open(m_ip_address, m_tcp_port);
+    ret = m_serial_interface.open(m_serial_port);
     if (ret < 0) {
-        m_serial_interface.close();
+        m_socket_interface.close();
         return ret;
     }
 
