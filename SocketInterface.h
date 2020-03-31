@@ -13,7 +13,7 @@ public:
     SocketInterface();
     ~SocketInterface();
 
-    int open(const char *address_string, uint16_t server_port);
+    int open(uint16_t server_port);
     int close();
     void receive();
     int available() const;

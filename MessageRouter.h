@@ -12,7 +12,6 @@ public:
     MessageRouter();
     ~MessageRouter();
 
-    void setSocketAddress(const char * ip_address);
     void setSocketPort(uint16_t port);
     void setSerialPort(const char * serial_port);
 
@@ -30,7 +29,6 @@ private:
     int processMsgFromSocket(const LowLevelMessage &msg);
 
     bool m_opened;
-    const char *m_ip_address;
     uint16_t m_tcp_port;
     const char *m_serial_port;
 

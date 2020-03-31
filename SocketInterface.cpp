@@ -17,7 +17,7 @@ SocketInterface::SocketInterface()
 
 SocketInterface::~SocketInterface() = default;
 
-int SocketInterface::open(const char *address_string, uint16_t server_port)
+int SocketInterface::open(uint16_t server_port)
 {
     int ret;
 
@@ -39,19 +39,7 @@ int SocketInterface::open(const char *address_string, uint16_t server_port)
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(server_port);
-
-    ret = inet_pton(AF_INET, address_string, &server_address.sin_addr);
-    if (ret < 0) {
-        printf("Failed to convert IP address string: %d (%s)\n", -errno,
-                strerror(errno));
-        ret = -errno;
-        close();
-        return ret;
-    } else if (ret != 1) {
-        printf("Invalid IP address string provided\n");
-        close();
-        return -EINVAL;
-    }
+    server_address.sin_addr.s_addr = INADDR_ANY;
 
     // Set option: reusable addresses and ports
     int option_value = 1;

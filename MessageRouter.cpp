@@ -8,7 +8,6 @@
 MessageRouter::MessageRouter()
 {
     m_opened = false;
-    m_ip_address = nullptr;
     m_tcp_port = 0;
     m_serial_port = nullptr;
     for (uint32_t &subscription : m_subscriptions) {
@@ -17,11 +16,6 @@ MessageRouter::MessageRouter()
 }
 
 MessageRouter::~MessageRouter() = default;
-
-void MessageRouter::setSocketAddress(const char *ip_address)
-{
-    m_ip_address = ip_address;
-}
 
 void MessageRouter::setSocketPort(uint16_t port)
 {
@@ -39,13 +33,13 @@ int MessageRouter::open()
         return 0;
     }
 
-    if (m_ip_address == nullptr || m_serial_port == nullptr) {
+    if (m_serial_port == nullptr) {
         return -EFAULT;
     }
 
     int ret;
 
-    ret = m_socket_interface.open(m_ip_address, m_tcp_port);
+    ret = m_socket_interface.open(m_tcp_port);
     if (ret < 0) {
         return ret;
     }
